@@ -118,7 +118,9 @@ public class RouterChain {
      */
     public List<ProviderInfo> route(SofaRequest request, List<ProviderInfo> providerInfos) {
         for (Router router : routers) {
+            LOGGER.info("router class: " + router.getClass());
             providerInfos = router.route(request, providerInfos);
+            LOGGER.info("after router: " + providerInfos.get(0) + ", providerInfos size: " + providerInfos.size());
         }
         return providerInfos;
     }

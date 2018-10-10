@@ -432,6 +432,13 @@ public class RpcConstants {
      */
     public static final String  ADDRESS_DIRECT_GROUP               = "_DIRECT";
 
+    /**
+     * 默认mesh coreDNS分组
+     *
+     * @since 5.2.0
+     */
+    public static final String  ADDRESS_MESH_GROUP                 = "_MESH";
+
     /*--------客户端相关结束---------*/
 
     /*--------系统参数相关开始---------*/

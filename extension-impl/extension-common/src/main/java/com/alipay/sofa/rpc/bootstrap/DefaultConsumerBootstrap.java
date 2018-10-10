@@ -24,6 +24,7 @@ import com.alipay.sofa.rpc.client.ProviderHelper;
 import com.alipay.sofa.rpc.client.ProviderInfo;
 import com.alipay.sofa.rpc.client.ProviderInfoAttrs;
 import com.alipay.sofa.rpc.common.RpcConstants;
+import com.alipay.sofa.rpc.common.RpcOptions;
 import com.alipay.sofa.rpc.common.SofaConfigs;
 import com.alipay.sofa.rpc.common.SofaOptions;
 import com.alipay.sofa.rpc.common.utils.CommonUtils;
@@ -41,6 +42,7 @@ import com.alipay.sofa.rpc.log.LoggerFactory;
 import com.alipay.sofa.rpc.proxy.ProxyFactory;
 import com.alipay.sofa.rpc.registry.Registry;
 import com.alipay.sofa.rpc.registry.RegistryFactory;
+import com.sun.corba.se.spi.activation.LocatorOperations;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -177,7 +179,7 @@ public class DefaultConsumerBootstrap<T> extends ConsumerBootstrap<T> {
     }
 
     /**
-     * for check fields and parameters of consumer config 
+     * for check fields and parameters of consumer config
      */
     protected void checkParameters() {
 
@@ -252,6 +254,9 @@ public class DefaultConsumerBootstrap<T> extends ConsumerBootstrap<T> {
         if (StringUtils.isNotEmpty(directUrl)) {
             // 如果走直连
             result = subscribeFromDirectUrl(directUrl);
+        } else if (consumerConfig.isMeshMode()) {
+            LOGGER.info("mesh subscribe, getInterfaceId: " + consumerConfig.getInterfaceId());
+            result = subscribeFroMeshUrl(consumerConfig.getInterfaceId() + ".rpc:12200");
         } else {
             // 没有配置url直连
             List<RegistryConfig> registryConfigs = consumerConfig.getRegistry();
@@ -285,8 +290,28 @@ public class DefaultConsumerBootstrap<T> extends ConsumerBootstrap<T> {
             }
             tmpProviderInfoList.add(providerInfo);
         }
-
         result.add(new ProviderGroup(RpcConstants.ADDRESS_DIRECT_GROUP, tmpProviderInfoList));
+        return result;
+    }
+
+    /**
+     * Subscribe provider list from coreDNS
+     *
+     * @param meshUrl mesh url of coreDNS
+     * @return Provider group list
+     */
+    protected List<ProviderGroup> subscribeFroMeshUrl(String meshUrl) {
+        List<ProviderGroup> result = new ArrayList<ProviderGroup>();
+        List<ProviderInfo> tmpProviderInfoList = new ArrayList<ProviderInfo>();
+        String[] providerStrs = StringUtils.splitWithCommaOrSemicolon(meshUrl);
+        for (String providerStr : providerStrs) {
+            ProviderInfo providerInfo = convertToProviderInfo(providerStr);
+            if (providerInfo.getStaticAttr(ProviderInfoAttrs.ATTR_SOURCE) == null) {
+                providerInfo.setStaticAttr(ProviderInfoAttrs.ATTR_SOURCE, "mesh");
+            }
+            tmpProviderInfoList.add(providerInfo);
+        }
+        result.add(new ProviderGroup(RpcConstants.ADDRESS_MESH_GROUP, tmpProviderInfoList));
         return result;
     }
 
@@ -306,6 +331,7 @@ public class DefaultConsumerBootstrap<T> extends ConsumerBootstrap<T> {
      * @return Provider group list
      */
     protected List<ProviderGroup> subscribeFromRegistries() {
+        LOGGER.info("subscribeFromRegistries getUniqueId: " + consumerConfig.getUniqueId());
         List<ProviderGroup> result = new ArrayList<ProviderGroup>();
         List<RegistryConfig> registryConfigs = consumerConfig.getRegistry();
         if (CommonUtils.isEmpty(registryConfigs)) {
@@ -322,7 +348,9 @@ public class DefaultConsumerBootstrap<T> extends ConsumerBootstrap<T> {
 
         // 从注册中心订阅 {groupName: ProviderGroup}
         Map<String, ProviderGroup> tmpProviderInfoList = new HashMap<String, ProviderGroup>();
+        LOGGER.info("registryConfigs size: " + registryConfigs.size());
         for (RegistryConfig registryConfig : registryConfigs) {
+            LOGGER.info("registryConfig: " + registryConfig);
             Registry registry = RegistryFactory.getRegistry(registryConfig);
             registry.init();
             registry.start();
@@ -334,6 +362,7 @@ public class DefaultConsumerBootstrap<T> extends ConsumerBootstrap<T> {
                         consumerConfig.setProviderInfoListener(new WrapperClusterProviderInfoListener(listener,
                             respondRegistries));
                     }
+                    LOGGER.info("registry.subscribe getUniqueId: " + consumerConfig.getUniqueId());
                     current = registry.subscribe(consumerConfig);
                 } finally {
                     if (respondRegistries != null) {
@@ -473,6 +502,7 @@ public class DefaultConsumerBootstrap<T> extends ConsumerBootstrap<T> {
             // 重要： proxyIns不能换，只能换cluster。。。。
             // 修改调用的tags cluster(loadblance) timeout, retries？
             Map<String, String> newValues = (Map<String, String>) newValueMap;
+            LOGGER.info("newValues: " + newValues);
             Map<String, String> oldValues = new HashMap<String, String>();
             boolean rerefer = false;
             try { // 检查是否有变化
@@ -480,6 +510,9 @@ public class DefaultConsumerBootstrap<T> extends ConsumerBootstrap<T> {
                 for (Map.Entry<String, String> entry : newValues.entrySet()) {
                     String newValue = entry.getValue();
                     String oldValue = consumerConfig.queryAttribute(entry.getKey());
+                    if (entry.getKey().contains("mesh.mode")) {
+                        LOGGER.info("oldValue: " + oldValue);
+                    }
                     boolean changed = oldValue == null ? newValue != null : !oldValue.equals(newValue);
                     if (changed) { // 记住旧的值
                         oldValues.put(entry.getKey(), oldValue);

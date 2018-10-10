@@ -141,6 +141,7 @@ public abstract class AbstractCluster extends Cluster {
         connectionHolder.init();
         try {
             // 得到服务端列表
+            LOGGER.info("get all ProviderGroup");
             List<ProviderGroup> all = consumerBootstrap.subscribe();
             if (CommonUtils.isNotEmpty(all)) {
                 // 初始化服务端连接（建立长连接)

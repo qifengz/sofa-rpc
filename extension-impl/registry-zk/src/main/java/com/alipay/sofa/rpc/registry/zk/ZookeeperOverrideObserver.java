@@ -119,6 +119,7 @@ public class ZookeeperOverrideObserver extends AbstractZookeeperObserver {
                     config, overridePath, currentData);
                 for (ConfigListener listener : configListeners) {
                     for (Map<String, String> attribute : attributes) {
+                        LOGGER.infoWithApp(config.getAppName(), "attribute: " + attribute);
                         listener.attrUpdated(attribute);
                     }
                 }

@@ -27,6 +27,8 @@ import com.alipay.sofa.rpc.config.ConsumerConfig;
 import com.alipay.sofa.rpc.core.request.SofaRequest;
 import com.alipay.sofa.rpc.ext.Extension;
 import com.alipay.sofa.rpc.filter.AutoActive;
+import com.alipay.sofa.rpc.log.Logger;
+import com.alipay.sofa.rpc.log.LoggerFactory;
 
 import java.util.List;
 
@@ -39,7 +41,7 @@ import java.util.List;
 @Extension(value = "registry", order = -18000)
 @AutoActive(consumerSide = true)
 public class RegistryRouter extends Router {
-
+    private final static Logger LOGGER              = LoggerFactory.getLogger(RegistryRouter.class);
     /**
      * 路由路径：注册中心
      *
@@ -66,12 +68,11 @@ public class RegistryRouter extends Router {
 
     @Override
     public List<ProviderInfo> route(SofaRequest request, List<ProviderInfo> providerInfos) {
-
         //has  address. FIXME
         if (CommonUtils.isNotEmpty(providerInfos)) {
             return providerInfos;
         }
-
+        LOGGER.info("providerInfos size0: " + (providerInfos == null ? "null " : providerInfos.size()));
         AddressHolder addressHolder = consumerBootstrap.getCluster().getAddressHolder();
         if (addressHolder != null) {
             List<ProviderInfo> current = addressHolder.getProviderInfos(RpcConstants.ADDRESS_DEFAULT_GROUP);
@@ -82,6 +83,7 @@ public class RegistryRouter extends Router {
             }
         }
         recordRouterWay(RPC_REGISTRY_ROUTER);
+        LOGGER.info("providerInfos size1: " + providerInfos.size());
         return providerInfos;
     }
 }

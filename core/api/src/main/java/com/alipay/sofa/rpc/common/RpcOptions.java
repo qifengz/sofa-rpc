@@ -497,4 +497,9 @@ public class RpcOptions {
      * Whether to close lookout collection.
      */
     public static final String LOOKOUT_COLLECT_DISABLE                  = "lookout.collect.disable";
+
+    /**
+     * mesh开关
+     */
+    public static final String MESH_MODE                                = "mesh.mode";
 }

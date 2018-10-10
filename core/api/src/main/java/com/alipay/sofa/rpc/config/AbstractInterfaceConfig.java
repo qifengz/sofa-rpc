@@ -48,6 +48,7 @@ import static com.alipay.sofa.rpc.common.RpcOptions.DEFAULT_UNIQUEID;
 import static com.alipay.sofa.rpc.common.RpcOptions.DEFAULT_VERSION;
 import static com.alipay.sofa.rpc.common.RpcOptions.SERVICE_REGISTER;
 import static com.alipay.sofa.rpc.common.RpcOptions.SERVICE_SUBSCRIBE;
+import static com.alipay.sofa.rpc.common.RpcOptions.MESH_MODE;
 import static com.alipay.sofa.rpc.config.ConfigValueHelper.checkNormalWithCommaColon;
 
 /**
@@ -175,6 +176,11 @@ public abstract class AbstractInterfaceConfig<T, S extends AbstractInterfaceConf
      * 是否启动结果缓存
      */
     protected boolean                                cache;
+
+    /**
+     * 是否开启mock
+     */
+    protected boolean                                meshMode         = getBooleanValue(MESH_MODE);                  ;
 
     /**
      * 是否开启mock
@@ -1010,5 +1016,17 @@ public abstract class AbstractInterfaceConfig<T, S extends AbstractInterfaceConf
      */
     public String getAppName() {
         return application.getAppName();
+    }
+
+    /**
+     * Go mesh router
+     * @return
+     */
+    public boolean isMeshMode() {
+        return meshMode;
+    }
+
+    public void setMeshMode(boolean meshMode) {
+        this.meshMode = meshMode;
     }
 }

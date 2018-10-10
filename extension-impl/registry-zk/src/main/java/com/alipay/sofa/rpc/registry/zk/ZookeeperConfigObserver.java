@@ -115,7 +115,9 @@ public class ZookeeperConfigObserver extends AbstractZookeeperObserver {
                     currentData);
                 for (ConfigListener listener : configListeners) {
                     for (Map<String, String> attribute : attributes) {
-                        listener.configChanged(attribute);
+                        LOGGER.infoWithApp(config.getAppName(), "attribute: " + attribute + ", listener class: " +
+                            listener.getClass());
+                        listener.attrUpdated(attribute);
                     }
                 }
             }
@@ -172,9 +174,12 @@ public class ZookeeperConfigObserver extends AbstractZookeeperObserver {
             //转换子节点Data为接口级配置<配置属性名,配置属性值>,例如<timeout,200>
             Map<String, String> attribute = ZookeeperRegistryHelper.convertConfigToAttribute(configPath, data,
                 removeType);
+            LOGGER.infoWithApp(config.getAppName(), "notifyListeners attribute: " + attribute);
             for (ConfigListener listener : configListeners) {
-                listener.configChanged(attribute);
+                listener.attrUpdated(attribute);
             }
+            // 配置修改后，key变化了，重新加上listener，否则再次更新会失效
+            configListenerMap.put(config, configListeners);
         }
     }
 }

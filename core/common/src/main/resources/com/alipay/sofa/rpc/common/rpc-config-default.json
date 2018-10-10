@@ -203,6 +203,8 @@ PS:大家也看到了，本JSON文档是支持注释的，而标准JSON是不支
   "stream.observer.max.size": 10000,
   // 本地缓存的Callback最大实例数
   "callback.max.size": 1000,
+  // Service Mesh模式开关
+  "mesh.mode": false,
   /*-------------Consumer相关配置结束-------------*/
 
 

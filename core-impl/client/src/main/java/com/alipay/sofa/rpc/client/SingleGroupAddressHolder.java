@@ -44,6 +44,11 @@ public class SingleGroupAddressHolder extends AddressHolder {
     protected ProviderGroup        registryGroup;
 
     /**
+     * mesh coreDNS来的地址列表
+     */
+    protected ProviderGroup        meshGroup;
+
+    /**
      * 地址变化的锁
      */
     private ReentrantReadWriteLock lock  = new ReentrantReadWriteLock();
@@ -61,6 +66,7 @@ public class SingleGroupAddressHolder extends AddressHolder {
         super(consumerBootstrap);
         directUrlGroup = new ProviderGroup(RpcConstants.ADDRESS_DIRECT_GROUP);
         registryGroup = new ProviderGroup();
+        meshGroup = new ProviderGroup(RpcConstants.ADDRESS_MESH_GROUP);
     }
 
     @Override
@@ -79,7 +85,7 @@ public class SingleGroupAddressHolder extends AddressHolder {
         rLock.lock();
         try {
             return RpcConstants.ADDRESS_DIRECT_GROUP.equals(groupName) ? directUrlGroup
-                : registryGroup;
+                : RpcConstants.ADDRESS_MESH_GROUP.equals(groupName) ? meshGroup : registryGroup;
         } finally {
             rLock.unlock();
         }
@@ -92,6 +98,7 @@ public class SingleGroupAddressHolder extends AddressHolder {
             List<ProviderGroup> list = new ArrayList<ProviderGroup>();
             list.add(registryGroup);
             list.add(directUrlGroup);
+            list.add(meshGroup);
             return list;
         } finally {
             rLock.unlock();
@@ -102,7 +109,7 @@ public class SingleGroupAddressHolder extends AddressHolder {
     public int getAllProviderSize() {
         rLock.lock();
         try {
-            return directUrlGroup.size() + registryGroup.size();
+            return directUrlGroup.size() + registryGroup.size() + meshGroup.size();
         } finally {
             rLock.unlock();
         }
@@ -148,11 +155,14 @@ public class SingleGroupAddressHolder extends AddressHolder {
     @Override
     public void updateAllProviders(List<ProviderGroup> providerGroups) {
         ConcurrentHashSet<ProviderInfo> tmpDirectUrl = new ConcurrentHashSet<ProviderInfo>();
+        ConcurrentHashSet<ProviderInfo> tmpMeshUrl = new ConcurrentHashSet<ProviderInfo>();
         ConcurrentHashSet<ProviderInfo> tmpRegistry = new ConcurrentHashSet<ProviderInfo>();
         for (ProviderGroup providerGroup : providerGroups) {
             if (!ProviderHelper.isEmpty(providerGroup)) {
                 if (RpcConstants.ADDRESS_DIRECT_GROUP.equals(providerGroup.getName())) {
                     tmpDirectUrl.addAll(providerGroup.getProviderInfos());
+                } else if (RpcConstants.ADDRESS_MESH_GROUP.equals(providerGroup.getName())) {
+                    tmpMeshUrl.addAll(providerGroup.getProviderInfos());
                 } else {
                     tmpRegistry.addAll(providerGroup.getProviderInfos());
                 }
@@ -162,6 +172,7 @@ public class SingleGroupAddressHolder extends AddressHolder {
         try {
             this.directUrlGroup.setProviderInfos(new ArrayList<ProviderInfo>(tmpDirectUrl));
             this.registryGroup.setProviderInfos(new ArrayList<ProviderInfo>(tmpRegistry));
+            this.meshGroup.setProviderInfos(new ArrayList<ProviderInfo>(tmpMeshUrl));
         } finally {
             wLock.unlock();
         }

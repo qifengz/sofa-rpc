@@ -17,9 +17,7 @@
 package com.alipay.sofa.rpc.client.router;
 
 import com.alipay.sofa.rpc.bootstrap.ConsumerBootstrap;
-import com.alipay.sofa.rpc.client.AddressHolder;
-import com.alipay.sofa.rpc.client.ProviderInfo;
-import com.alipay.sofa.rpc.client.Router;
+import com.alipay.sofa.rpc.client.*;
 import com.alipay.sofa.rpc.common.RpcConstants;
 import com.alipay.sofa.rpc.common.utils.StringUtils;
 import com.alipay.sofa.rpc.config.ConsumerConfig;
@@ -27,7 +25,10 @@ import com.alipay.sofa.rpc.config.RegistryConfig;
 import com.alipay.sofa.rpc.core.request.SofaRequest;
 import com.alipay.sofa.rpc.ext.Extension;
 import com.alipay.sofa.rpc.filter.AutoActive;
+import com.alipay.sofa.rpc.log.Logger;
+import com.alipay.sofa.rpc.log.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -39,7 +40,7 @@ import java.util.List;
 @Extension(value = "mesh", order = -19000)
 @AutoActive(consumerSide = true)
 public class MeshRouter extends Router {
-
+    private final static Logger LOGGER          = LoggerFactory.getLogger(MeshRouter.class);
     /**
      * 路由路径：注册中心
      *
@@ -60,38 +61,59 @@ public class MeshRouter extends Router {
     @Override
     public boolean needToLoad(ConsumerBootstrap consumerBootstrap) {
         ConsumerConfig consumerConfig = consumerBootstrap.getConsumerConfig();
-        // 不是直连，且从注册中心订阅配置
+        // 不是直连，mesh mode
         final boolean isDirect = StringUtils.isNotBlank(consumerConfig.getDirectUrl());
-        final List<RegistryConfig> registrys = consumerConfig.getRegistry();
-        boolean isMesh = false;
-
-        if (registrys != null) {
-            for (RegistryConfig registry : registrys) {
-                if (registry.getProtocol().equalsIgnoreCase(RpcConstants.REGISTRY_PROTOCOL_MESH)) {
-                    isMesh = true;
-                    break;
-                }
-            }
-        }
-
-        boolean isBolt = consumerConfig.getProtocol().equalsIgnoreCase(RpcConstants.PROTOCOL_TYPE_BOLT);
-
-        return !isDirect && isMesh && isBolt;
+        final boolean meshMode = consumerConfig.isMeshMode();
+        LOGGER.info("mesh mode: " + meshMode);
+        return !isDirect && meshMode == true;
     }
 
     @Override
     public List<ProviderInfo> route(SofaRequest request, List<ProviderInfo> providerInfos) {
+        List<ProviderInfo> meshProviderInfos = new ArrayList<ProviderInfo>();
         AddressHolder addressHolder = consumerBootstrap.getCluster().getAddressHolder();
-        if (addressHolder != null) {
-            List<ProviderInfo> current = addressHolder.getProviderInfos(RpcConstants.ADDRESS_DEFAULT_GROUP);
-            if (providerInfos != null) {
-                providerInfos.addAll(current);
+        ConnectionHolder connectionHolder = consumerBootstrap.getCluster().getConnectionHolder();
+        if (addressHolder != null && connectionHolder != null) {
+            ProviderInfo tmpProviderInfo = null;
+            List<ProviderInfo> current = addressHolder.getProviderInfos(RpcConstants.ADDRESS_MESH_GROUP);
+            List<ProviderInfo> registries = addressHolder.getProviderInfos(RpcConstants.ADDRESS_DEFAULT_GROUP);
+            LOGGER.info("current size: " + current.size());
+            LOGGER.info("mesh mode runtime: " + consumerBootstrap.getConsumerConfig().isMeshMode());
+            if (!current.isEmpty()) {
+                if (consumerBootstrap.getConsumerConfig().isMeshMode() != true) {
+                    meshProviderInfos.addAll(registries);
+                } else {
+                    meshProviderInfos.addAll(current);
+                }
             } else {
-                providerInfos = current;
+                if (providerInfos != null) {
+                    LOGGER.info("providerInfos no null");
+                    tmpProviderInfo = providerInfos.get(0);
+                } else {
+                    if (registries.size() > 0) {
+                        LOGGER.info("registries 0: " + registries.get(0));
+                        tmpProviderInfo = registries.get(0);
+                    }
+                }
+                if (tmpProviderInfo != null) {
+                    LOGGER.info("ProviderInfo host1: " + tmpProviderInfo.getHost());
+                    ProviderInfo providerInfo = new ProviderInfo(request.getInterfaceName() + ".rpc",
+                        tmpProviderInfo.getPort());
+                    meshProviderInfos.add(providerInfo);
+                    LOGGER.info("ProviderInfo host2: " + providerInfo.getHost());
+                    ProviderGroup providerGroup = new ProviderGroup(RpcConstants.ADDRESS_MESH_GROUP);
+                    providerGroup.setProviderInfos(meshProviderInfos);
+                    if (addressHolder.getProviderGroup(RpcConstants.ADDRESS_MESH_GROUP) == null) {
+                        addressHolder.addProvider(providerGroup);
+                    }
+                    if (connectionHolder.getAvailableClientTransport(meshProviderInfos.get(0)) == null) {
+                        connectionHolder.addProvider(providerGroup);
+                    }
+                }
             }
         }
         recordRouterWay(RPC_MESH_ROUTER);
-        return providerInfos;
+        return meshProviderInfos;
     }
 
 }

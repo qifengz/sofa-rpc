@@ -310,7 +310,7 @@ public class ZookeeperRegistry extends Registry {
 
         if (config.isSubscribe()) {
             // 订阅配置节点
-            if (!INTERFACE_CONFIG_CACHE.containsKey(buildConfigPath(rootPath, config))) {
+            if (!INTERFACE_CONFIG_CACHE.containsKey(buildConfigPath(rootPath, config) + ":" + config.getUniqueId())) {
                 //订阅接口级配置
                 subscribeConfig(config, config.getConfigListener());
             }
@@ -328,6 +328,7 @@ public class ZookeeperRegistry extends Registry {
             if (configObserver == null) { // 初始化
                 configObserver = new ZookeeperConfigObserver();
             }
+            LOGGER.info("subscribeConfig before getUniqueId: " + config.getUniqueId());
             configObserver.addConfigListener(config, listener);
             final String configPath = buildConfigPath(rootPath, config);
             // 监听配置节点下 子节点增加、子节点删除、子节点Data修改事件
@@ -354,7 +355,7 @@ public class ZookeeperRegistry extends Registry {
                 }
             });
             pathChildrenCache.start(PathChildrenCache.StartMode.BUILD_INITIAL_CACHE);
-            INTERFACE_CONFIG_CACHE.put(configPath, pathChildrenCache);
+            INTERFACE_CONFIG_CACHE.put(configPath + ":" + config.getUniqueId(), pathChildrenCache);
             configObserver.updateConfigAll(config, configPath, pathChildrenCache.getCurrentData());
         } catch (Exception e) {
             throw new SofaRpcRuntimeException("Failed to subscribe provider config from zookeeperRegistry!", e);
@@ -465,6 +466,7 @@ public class ZookeeperRegistry extends Registry {
 
     @Override
     public List<ProviderGroup> subscribe(final ConsumerConfig config) {
+        LOGGER.info("subscribe first getUniqueId: " + config.getUniqueId());
         String appName = config.getAppName();
         if (!registryConfig.isSubscribe()) {
             // 注册中心不订阅
@@ -488,8 +490,11 @@ public class ZookeeperRegistry extends Registry {
             }
         }
         if (config.isSubscribe()) {
+            LOGGER.info("subscribe second getUniqueId: " + config.getUniqueId());
+            LOGGER.info("INTERFACE_CONFIG_CACHE: " + INTERFACE_CONFIG_CACHE);
             // 订阅配置
             if (!INTERFACE_CONFIG_CACHE.containsKey(buildConfigPath(rootPath, config))) {
+                LOGGER.info("subscribeConfig getUniqueId: " + config.getUniqueId());
                 //订阅接口级配置
                 subscribeConfig(config, config.getConfigListener());
             }
